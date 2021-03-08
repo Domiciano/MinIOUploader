@@ -6,7 +6,10 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import javax.net.ssl.HttpsURLConnection;
-import java.io.*;
+import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -20,7 +23,7 @@ public class Main {
     private static int total = 0;
 
     //2000
-    public static void main(String... args){
+    public static void main(String... args) {
         if (!folder.exists()) folder.mkdirs();
 
 
@@ -32,7 +35,7 @@ public class Main {
         Cloudinary cloudinary = new Cloudinary(config);
         ArrayList<String> group = getListOfPhotos(cloudinary);
         total = group.size();
-        System.out.println("Hay un total de " + total+" muestras");
+        System.out.println("Hay un total de " + total + " muestras");
         saveOnFolderAndUpload(group);
     }
 
@@ -40,36 +43,31 @@ public class Main {
         int counter = 0;
         for (String url : group) {
             String[] parts = url.split("/");
-            //System.out.println("Descargando: "+parts[parts.length - 1]);
             File file = new File("/Users/domicianorincon/Downloads/cideim/" + parts[parts.length - 1]);
             saveURLImageOnFile(url, file);
             upload(file, parts[parts.length - 1]);
             counter++;
-            System.out.println("Subidas a MinIO "+counter+" de "+ total);
+            System.out.println("Subidas a MinIO " + counter + " de " + total);
         }
 
     }
 
-    public static void upload(File file, String name){
-            String fullpath = file.toString();
-            if(name.contains("GUARAL")){
-                uploadMinio(fullpath,name,"guaralrpc");
-            }else{
-                uploadMinio(fullpath,name,"guaralst");
-            }
+    public static void upload(File file, String name) {
+        String fullpath = file.toString();
+        if (name.contains("GUARAL")) {
+            uploadMinio(fullpath, name, "guaralrpc");
+        } else {
+            uploadMinio(fullpath, name, "guaralst");
+        }
     }
 
     public static ArrayList<String> getListOfPhotos(Cloudinary cloudinary) {
 
-        try{
+        try {
             JSONObject outerObject = null;
-
             String jsonNext = null;
-
             boolean ifWeHaveMoreResources = true;
-
             ArrayList<String> listRes = new ArrayList<String>();
-
             while (ifWeHaveMoreResources) {
                 outerObject = new JSONObject(cloudinary.api().resources(ObjectUtils.asMap("max_results", 3000, "next_cursor", jsonNext)));
                 if (outerObject.has("next_cursor")) {
@@ -81,27 +79,25 @@ public class Main {
                 JSONArray jsonArray = outerObject.getJSONArray("resources");
                 for (int i = 0, size = jsonArray.length(); i < size; i++) {
                     JSONObject objectInArray = jsonArray.getJSONObject(i);
-                    String public_id = objectInArray.get("public_id").toString();
                     String url = objectInArray.get("secure_url").toString();
                     listRes.add(url);
                 }
             }
-
             ArrayList<String> out = new ArrayList<String>();
             for (String u : listRes) {
                 out.add(u);
             }
             return out;
-        }catch(Exception ex){
+        } catch (Exception ex) {
+            ex.printStackTrace();
             return null;
         }
-
     }
 
     public static void uploadMinio(String fullOriginPath, String filenameOnServer, String bucket) {
         try {
             // Create a minioClient with the MinIO Server name, Port, Access key and Secret key.
-            MinioClient minioClient = new MinioClient("i2thub.icesi.edu.co",9992, "guaralizador", "WLDuWy1USylYcv8wBNvxDA0VrDR18uOMfi0NdLibLe");
+            MinioClient minioClient = new MinioClient("i2thub.icesi.edu.co", 9992, "guaralizador", "WLDuWy1USylYcv8wBNvxDA0VrDR18uOMfi0NdLibLe");
             // Check if the bucket already exists.
             boolean isExist = minioClient.bucketExists(bucket);
             if (isExist) {
@@ -111,22 +107,21 @@ public class Main {
                 minioClient.makeBucket(bucket);
             }
             minioClient.putObject(bucket, filenameOnServer, fullOriginPath, null);
-            System.out.println(">>>Subido: "+filenameOnServer);
+            System.out.println(">>>Subido: " + filenameOnServer);
         } catch (MinioException e) {
-            System.out.println(">>>Error al subir: "+filenameOnServer);
-            System.out.println("Minio Error: "+e.getLocalizedMessage());
+            System.out.println(">>>Error Minio: " + e.getLocalizedMessage());
+            e.printStackTrace();
         } catch (IOException e) {
-            System.out.println(">>>Error al subir: "+filenameOnServer);
-            System.out.println("IO Error: "+e.getLocalizedMessage());
+            System.out.println(">>>Error IO: " + e.getLocalizedMessage());
+            e.printStackTrace();
         } catch (InvalidKeyException e) {
-            System.out.println(">>>Error al subir: "+filenameOnServer);
-            System.out.println("Invalid Key: "+e.getLocalizedMessage());
+            System.out.println(">>>Error Invalid Key: " + e.getLocalizedMessage());
+            e.printStackTrace();
         } catch (NoSuchAlgorithmException e) {
-            System.out.println(">>>Error al subir: "+filenameOnServer);
-            System.out.println("No Algoritm: "+e.getLocalizedMessage());
+            System.out.println(">>>Error Algotithm: " + e.getLocalizedMessage());
+            e.printStackTrace();
         }
     }
-
 
 
     private static void saveURLImageOnFile(String url, File file) {
@@ -143,7 +138,7 @@ public class Main {
             is.close();
             fos.close();
             connection.disconnect();
-            System.out.println("<<<Almacenado: "+file);
+            System.out.println("<<<Almacenado: " + file);
         } catch (IOException ex) {
             System.out.println("!!!!!!!!!!!La foto con URL: " + url + " no pudo ser descargada!");
         }
